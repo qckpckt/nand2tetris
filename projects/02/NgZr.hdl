@@ -1,0 +1,23 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/02/HalfAdder.hdl
+
+/**
+ * Checks if ALU output is negative / zero
+ */
+
+CHIP NgZr {
+    IN in[16];     // 16-bit input
+    OUT out[16],   // 16-bit output
+        ng,        // 1 if input is negative, 0 otherwise
+        zr;        // 1 if input is 0, 0 otherwise
+
+    PARTS:
+    And (a=in[15], b=in[15], out=ng);
+    Or8Way(in=in[0..7], out=firsthalf);
+    Or8Way(in=in[8..15], out=secondhalf);
+    Or(a=firsthalf, b=secondhalf, out=condensed);
+    Not(in=condensed, out=zr);
+    And16(a=in, b=in, out=out);
+}

@@ -1,0 +1,102 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/05/CPU.hdl
+
+/**
+ * The Hack CPU (Central Processing unit), consisting of an ALU,
+ * two registers named A and D, and a program counter named PC.
+ * The CPU is designed to fetch and execute instructions written in 
+ * the Hack machine language. In particular, functions as follows:
+ * Executes the inputted instruction according to the Hack machine 
+ * language specification. The D and A in the language specification
+ * refer to CPU-resident registers, while M refers to the external
+ * memory location addressed by A, i.e. to Memory[A]. The inM input 
+ * holds the value of this location. If the current instruction needs 
+ * to write a value to M, the value is placed in outM, the address 
+ * of the target location is placed in the addressM output, and the 
+ * writeM control bit is asserted. (When writeM==0, any value may 
+ * appear in outM). The outM and writeM outputs are combinational: 
+ * they are affected instantaneously by the execution of the current 
+ * instruction. The addressM and pc outputs are clocked: although they 
+ * are affected by the execution of the current instruction, they commit 
+ * to their new values only in the next time step. If reset==1 then the 
+ * CPU jumps to address 0 (i.e. pc is set to 0 in next time step) rather 
+ * than to the address resulting from executing the current instruction. 
+ */
+
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:
+    // check instruction type, generate control bits, set inverse of opcode, set writeM bit
+    Mux16(a=false, b=true, sel=instruction[15], out=iscinstruction);
+    And16(a=iscinstruction,
+          b=instruction,
+          out[0]=J3,
+          out[1]=J2,
+          out[2]=J1,
+          out[3]=writeM,
+          out[4]=D2,
+          out[5]=D1,
+          out[6]=C6,
+          out[7]=C5,
+          out[8]=C4,
+          out[9]=C3,
+          out[10]=C2,
+          out[11]=C1,
+          out[12]=a,
+          out[15]=opcode);
+    Not(in=opcode, out=notopcode);                                                             // if the op code is 0, set all control bits to 0
+    // instruction multiplexor
+    Mux16(a=instruction, b=ALUout, sel=instruction[15], out=toARegister);
+    // A register control bit
+    Or(a=notopcode, b=D1, out=aRegisterLoad);                                               // store input to A register if op code is 0, OR if d1 is 1
+    // A Register
+    ARegister(in=toARegister,
+             load=aRegisterLoad,
+             out=toMemMux,
+             out=ARegisterout,
+             out[0..14]=addressM);
+    // memory multiplexor
+    Mux16(a=toMemMux, b=inM, sel=a, out=toALUy);                                          // send memory register to alu Y if its a c instruction and the a bit is 1
+    // D Register
+    DRegister(in=ALUout, load=D2, out=toALUx);
+    // ALU control bits
+    Or(a=notopcode, b=C1, out=ALUzx);
+    Or(a=notopcode, b=C2, out=ALUnx);                                                      // if opcode is 0, we want the ALU to output the A register value
+    ALU(x=toALUx,
+        y=toALUy,
+        zx=ALUzx,
+        nx=ALUnx,
+        zy=C3,
+        ny=C4,
+        f=C5,
+        no=C6,
+        out=outM,
+        out=ALUout,
+        zr=ALUzr,
+        ng=ALUng);
+    // PC control bits
+    And(a=J1, b=ALUng, out=isng);                                                           // if alu ng is 1 and J1 is 1, we should jmp
+    And(a=J2, b=ALUzr, out=iszr);                                                           // if alu zr is 1 and J2 is 1, we should jmp
+    Not(in=ALUzr, out=NotALUzr);
+    Not(in=ALUng, out=NotALUng);
+    And(a=NotALUzr, b=NotALUng, out=pv);                                                                // if both alu ng and zr are 0, then alu out is positive
+    And(a=J3, b=pv, out=ispv);                                                              // if alu is positive, and J3 is 1, we should jmp
+    Or(a=isng, b=iszr, out=ngorzr);
+    Or(a=ngorzr, b=ispv, out=isjmp);                                                                    // we should jump if any of the above are 1
+    Not(in=isjmp, out=isinc);                                                                          // if we aren't loading, we're incrementing
+    //
+    PC(in=ARegisterout, load=isjmp, inc=isinc, reset=reset, out[0..14]=pc);
+}
