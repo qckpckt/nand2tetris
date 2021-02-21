@@ -51,7 +51,7 @@ class Parser():
             comp=self.symbols.comp_map.get(instruction.comp),
             dest=self.symbols.dest_map.get(instruction.dest, "000"),
             jmp=self.symbols.jmp_map.get(instruction.jmp, "000")
-            )
+        )
 
     def _store_labels(self):
         """Iterate over self.asm_file and store labels in self.symbols."""
@@ -93,7 +93,7 @@ class Parser():
 
 class Instruction:
 
-    kind = None
+    kind = None  # Didn't end up using tihs
 
     def __init__(self, raw):
         self.raw = raw
@@ -102,7 +102,7 @@ class Instruction:
 
 class AInstruction(Instruction):
 
-    kind = "A"
+    kind = "A"  # Didn't end up using this
 
     def __init__(self, raw):
         super().__init__(raw)
@@ -119,7 +119,7 @@ class CInstruction(Instruction):
         If jmp is missing, there will be no ";".
     """
 
-    kind = "C"
+    kind = "C"  # Didn't end up using this
 
     def __init__(self, raw, pattern=C_INSTR_PATTERN):
         super().__init__(raw)
